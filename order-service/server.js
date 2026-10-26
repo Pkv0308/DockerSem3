@@ -13,7 +13,8 @@ app.use(cors());         // Opens the API to frontend requests
 // 1. DATABASE CONNECTION
 // ==========================================
 // Mongoose will automatically create the 'store_orders' database
-mongoose.connect('mongodb://localhost:27017/store_orders')
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/store_orders';
+    mongoose.connect(MONGO_URL)
     .then(() => console.log('✅ Connected to MongoDB (store_orders)'))
     .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
@@ -80,7 +81,8 @@ app.post('/api/orders', async (req, res) => {
         let javaResponse;
         try {
             // Call the Java server (Port 8080)
-            javaResponse = await fetch('http://localhost:8080/inventory-service-1.0-SNAPSHOT/api/items/decrement', {
+            const INVENTORY_URL = process.env.INVENTORY_URL || 'http://localhost:8080/inventory-service-1.0-SNAPSHOT';
+            javaResponse = await fetch(`${INVENTORY_URL}/api/items/decrement`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(items) // Send the array of items to Java
