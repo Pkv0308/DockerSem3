@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">Store Management System</span>
+            <div class="d-flex align-items-center">
+                <span class="text-light me-3" id="user-role-badge"></span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div id="alert-box"></div>
+
+        <!-- ROW 1: Add Item & Cart -->
+        <div class="row mb-4">
+            <!-- ADMIN ADD ITEM PANEL -->
+            <div id="admin-wrapper" class="col-md-6 d-none">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Add New Item</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="add-item-form">
+                            <div class="mb-2">
+                                <label>Item Name</label>
+                                <input type="text" id="itemName" class="form-control" required>
+                            </div>
+                            <div class="mb-2">
+                                <label>Price ($)</label>
+                                <input type="number" step="0.01" id="itemPrice" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label>Initial Stock</label>
+                                <input type="number" id="itemStock" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Add to Database</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CART PANEL (Visible to Admin & Employee) -->
+            <div id="cart-wrapper" class="col-md-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">Current Order</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul id="cart-list" class="list-group mb-3">
+                            <li class="list-group-item text-muted">Cart is empty</li>
+                        </ul>
+                        <button class="btn btn-warning w-100 fw-bold" onclick="checkout()">Checkout Order</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 2: Inventory -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Current Inventory</h5>
+                        <button class="btn btn-light btn-sm" onclick="loadInventory()">Refresh</button>
+                    </div>
+                    <div class="card-body overflow-auto">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body">
+                                <!-- Items injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 3: Order History -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div id="history-panel" class="card shadow-sm d-none">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Past Orders</h5>
+                        <button class="btn btn-light btn-sm" onclick="loadOrders()">Refresh</button>
+                    </div>
+                    <div class="card-body">
+                        <div id="orders-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ========================================== -->
+    <!-- EDIT ITEM MODAL -->
+    <!-- ========================================== -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Edit Inventory Item</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editItemId">
+                    <div class="mb-2">
+                        <label>Item Name</label>
+                        <input type="text" id="editItemName" class="form-control" required>
+                    </div>
+                    <div class="mb-2">
+                        <label>Price ($)</label>
+                        <input type="number" step="0.01" id="editItemPrice" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Stock</label>
+                        <input type="number" id="editItemStock" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmEdit()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DELETE ITEM MODAL -->
+    <!-- ========================================== -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deleteItemId">
+                    <p id="deleteItemMessage" class="fs-5"></p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDelete()">Yes, Delete Item</button>
+                </div>
+            </div>
+        </div>
+    </div>  
+
+    <script>
+        // 1. App Configuration & State
+        const JAVA_API_BASE = 'http://localhost:8080/inventory-service-1.0-SNAPSHOT/api'; // <--- CHANGE THIS
+        const NODE_API_BASE = 'http://localhost:3000/api';
+        
+        let currentRole = localStorage.getItem('role');
+        let currentUserId = localStorage.getItem('userId');
+        let cart = []; // Array to hold items for checkout
+
+        // 2. Initialize Dashboard
+        window.onload = function() {
+            if (!currentRole || !currentUserId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('user-role-badge').textContent = `Logged in as: ${currentRole}`;
+            
+            // Both roles see history now
+            document.getElementById('history-panel').classList.remove('d-none');
+
+            if (currentRole === 'ADMIN') {
+                // Show Add Item form, make Cart take up only 50% width
+                document.getElementById('admin-wrapper').classList.remove('d-none');
+                document.getElementById('cart-wrapper').className = 'col-md-6';
+            } else {
+                // Employee: Add Item hidden, Cart takes up 100% width
+                document.getElementById('cart-wrapper').className = 'col-md-12';
+            }
+
+            setTimeout(() => {
+                loadInventory();
+                loadOrders();
+            }, 50);
+        };
+
+        // 3. Fetch Inventory from Java (Read)
+        async function loadInventory() {
+            try {
+                const response = await fetch(`${JAVA_API_BASE}/items`, {
+                    method: 'GET',
+                    credentials: 'include' // CRITICAL: Sends the JSESSIONID cookie
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    showAlert('Session expired. Please log in again.', 'danger');
+                    logout();
+                    return;
+                }
+
+                const items = await response.json();
+                const tbody = document.getElementById('inventory-table-body');
+                tbody.innerHTML = '';
+
+                items.forEach(item => {
+                    let tr = document.createElement('tr');
+                    
+                    // Everyone gets Add to Cart
+                    let actionButtonHtml = `<button class="btn btn-sm btn-outline-primary me-2" onclick="addToCart('${item.id}', '${item.name}', ${item.price}, ${item.stockQuantity})">Add to Cart</button>`;
+
+                    // ONLY Admin gets Edit and Delete
+                    if (currentRole === 'ADMIN') {
+                        actionButtonHtml += `
+                            <button class="btn btn-sm btn-outline-secondary me-2" onclick="openEditModal('${item.id}', '${item.name}', ${item.price}, ${item.stockQuantity})">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="openDeleteModal('${item.id}', '${item.name}')">Delete</button>
+                        `;
+                    }
+
+                    tr.innerHTML = `
+                        <td class="text-muted small">${item.id}</td>
+                        <td class="fw-bold">${item.name}</td>
+                        <td>$${item.price.toFixed(2)}</td>
+                        <td>
+                            <span class="badge ${item.stockQuantity > 0 ? 'bg-success' : 'bg-danger'}">
+                                ${item.stockQuantity} in stock
+                            </span>
+                        </td>
+                        <td>${actionButtonHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                showAlert('Error loading inventory. Is the Java server running?', 'danger');
+            }
+        }
+
+        // 4. Admin Feature: Add Item to Java (Write)
+        document.getElementById('add-item-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const newItem = {
+                name: document.getElementById('itemName').value,
+                price: parseFloat(document.getElementById('itemPrice').value),
+                stockQuantity: parseInt(document.getElementById('itemStock').value)
+            };
+
+            try {
+                const response = await fetch(`${JAVA_API_BASE}/items`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(newItem)
+                });
+
+                if (response.ok) {
+                    showAlert('Item successfully added!', 'success');
+                    document.getElementById('add-item-form').reset();
+                    loadInventory(); // Refresh the table
+                } else {
+                    showAlert('Failed to add item. Ensure you are an Admin.', 'danger');
+                }
+            } catch (err) {
+                showAlert('Network error while adding item.', 'danger');
+            }
+        });
+
+        // 5. Employee Feature: Shopping Cart Logic
+        function addToCart(id, name, price, maxStock) {
+            if (maxStock <= 0) {
+                showAlert('Cannot add item. Out of stock!', 'warning');
+                return;
+            }
+            
+            // Check if item is already in cart
+            let existingItem = cart.find(item => item.itemId === id);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ itemId: id, name: name, priceAtPurchase: price, quantity: 1 });
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            const cartList = document.getElementById('cart-list');
+            cartList.innerHTML = '';
+            
+            if (cart.length === 0) {
+                cartList.innerHTML = '<li class="list-group-item text-muted text-center py-4">Your cart is empty</li>';
+                return;
+            }
+
+            let total = 0;
+            cart.forEach((item, index) => {
+                total += (item.priceAtPurchase * item.quantity);
+                cartList.innerHTML += `
+                    <li class="list-group-item py-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div style="flex: 1;" class="me-2">
+                                <h6 class="mb-0 fw-bold text-truncate" style="max-width: 200px;">${item.name}</h6>
+                                <small class="text-muted">$${item.priceAtPurchase.toFixed(2)} each</small>
+                            </div>
+                            
+                            <div class="d-flex align-items-center">
+                                <div class="input-group input-group-sm me-2" style="width: 90px;">
+                                    <button class="btn btn-outline-secondary px-2" onclick="updateQuantity(${index}, -1)">-</button>
+                                    <span class="form-control text-center bg-white fw-bold p-0 d-flex align-items-center justify-content-center">${item.quantity}</span>
+                                    <button class="btn btn-outline-secondary px-2" onclick="updateQuantity(${index}, 1)">+</button>
+                                </div>
+                                
+                                <button class="btn btn-sm btn-outline-danger border-0 rounded-circle" 
+                                        onclick="removeFromCart(${index})" 
+                                        title="Remove item"
+                                        style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fs-5">&times;</i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <small class="text-muted me-1">Subtotal:</small>
+                            <span class="fw-bold">$${(item.priceAtPurchase * item.quantity).toFixed(2)}</span>
+                        </div>
+                    </li>
+                `;
+            });
+            
+            cartList.innerHTML += `
+                <div class="card-footer bg-light border-top-0 pt-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="h5 mb-0 fw-bold text-muted">Grand Total:</span>
+                        <span class="h4 mb-0 fw-bold text-success">$${total.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Increment or Decrement quantity
+        function updateQuantity(index, change) {
+            cart[index].quantity += change;
+
+            // If quantity reaches 0, or user hit minus on 1, remove it
+            if (cart[index].quantity <= 0) {
+                removeFromCart(index);
+            } else {
+                renderCart(); // Refresh the UI
+            }
+        }
+
+        // Remove item entirely
+        function removeFromCart(index) {
+            cart.splice(index, 1); // Remove 1 element at that position
+            renderCart(); // Refresh the UI
+        }
+
+        // 6. The Microservice Trigger: Send Order to Node.js
+        async function checkout() {
+            if (cart.length === 0) {
+                showAlert('Your cart is empty!', 'warning');
+                return;
+            }
+
+            // Prepare payload exactly how Node.js expects it
+            const orderPayload = {
+                userId: currentUserId,
+                items: cart.map(i => ({
+                    itemId: i.itemId,
+                    name: i.name,
+                    quantity: i.quantity,
+                    priceAtPurchase: i.priceAtPurchase
+                }))
+            };
+
+            try {
+                // Send to NODEJS SERVER (Port 3000)
+                const response = await fetch(`${NODE_API_BASE}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderPayload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Order successfully placed and inventory updated!', 'success');
+                    cart = []; // Empty the cart
+                    renderCart();
+                    loadInventory(); // Refresh inventory from Java to show deducted stock
+                    loadOrders();    // Refresh orders
+                } else {
+                    showAlert(`Order failed: ${data.message || data.error}`, 'danger');
+                }
+            } catch (err) {
+                showAlert('Could not reach Order Service (Node.js). Is it running?', 'danger');
+            }
+        }
+
+        // 7. Fetch Past Orders from Node.js (MongoDB)
+        async function loadOrders() {
+            try {
+                // If Employee, fetch only their orders. If Admin, fetch all (no userId param).
+                const url = currentRole === 'ADMIN' 
+                    ? `${NODE_API_BASE}/orders` 
+                    : `${NODE_API_BASE}/orders?userId=${currentUserId}`;
+
+                const response = await fetch(url);
+                const orders = await response.json();
+                
+                const ordersDiv = document.getElementById('orders-list');
+                ordersDiv.innerHTML = '';
+
+                if (orders.length === 0) {
+                    ordersDiv.innerHTML = '<p class="text-muted">No past orders found.</p>';
+                    return;
+                }
+
+                orders.forEach(order => {
+                    // Format the MongoDB timestamp
+                    const date = new Date(order.createdAt).toLocaleString();
+                    
+                    let html = `
+                        <div class="table-responsive mb-4 shadow-sm border rounded">
+                            <!-- Added table-layout: fixed to strictly enforce column widths -->
+                            <table class="table table-sm mb-0" style="table-layout: fixed;">
+                                <thead class="table-light">
+                                    <!-- ROW 1: Order ID and Date spanning all columns -->
+                                    <tr>
+                                        <th colspan="4" class="border-bottom">
+                                            <div class="d-flex justify-content-between align-items-center p-2">
+                                                <span><strong>Order ID:</strong> <span class="text-primary">${order._id}</span></span>
+                                                <span class="text-muted fw-normal">${date}</span>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                    <!-- ROW 2: Column Headers with strict percentage widths -->
+                                    <tr>
+                                        <th class="ps-3 text-start" style="width: 45%;">Item Name</th>
+                                        <th class="text-center" style="width: 15%;">Quantity</th>
+                                        <th class="text-end" style="width: 20%;">Price</th>
+                                        <th class="text-end pe-3" style="width: 20%;">Item Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    // Loop through each item in the order
+                    order.items.forEach(item => {
+                        const itemTotal = item.quantity * item.priceAtPurchase;
+                        
+                        html += `
+                                    <tr>
+                                        <td class="ps-3 text-start fw-medium">${item.name}</td>
+                                        <td class="text-center">${item.quantity}</td>
+                                        <td class="text-end">$${item.priceAtPurchase.toFixed(2)}</td>
+                                        <td class="text-end pe-3">$${itemTotal.toFixed(2)}</td>
+                                    </tr>
+                        `;
+                    });
+
+                    // LAST ROW: Order Total spanning columns
+                    html += `
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-group-divider bg-light">
+                                        <td colspan="3" class="text-end fw-bold pb-2 pt-2">Order Total:</td>
+                                        <td class="text-end fw-bold text-success pe-3 pb-2 pt-2">$${order.totalAmount.toFixed(2)}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    `;
+                    ordersDiv.innerHTML += html;
+                });
+            } catch (err) {
+                console.error("Error loading orders", err);
+            }
+        }
+
+        // ==========================================
+        // EDIT LOGIC (PUT)
+        // ==========================================
+        function openEditModal(id, name, price, stock) {
+            document.getElementById('editItemId').value = id;
+            document.getElementById('editItemName').value = name;
+            document.getElementById('editItemPrice').value = price;
+            document.getElementById('editItemStock').value = stock;
+            
+            // Trigger Bootstrap Modal
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+
+        async function confirmEdit() {
+            const updatedItem = {
+                id: document.getElementById('editItemId').value,
+                name: document.getElementById('editItemName').value,
+                price: parseFloat(document.getElementById('editItemPrice').value),
+                stockQuantity: parseInt(document.getElementById('editItemStock').value)
+            };
+
+            try {
+                const response = await fetch(`${JAVA_API_BASE}/items`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(updatedItem)
+                });
+
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide(); // Close modal
+                    showAlert('Item successfully updated!', 'success');
+                    loadInventory(); // Refresh table
+                } else {
+                    showAlert('Failed to update item.', 'danger');
+                }
+            } catch (err) {
+                showAlert('Network error while updating item.', 'danger');
+            }
+        }
+
+        // ==========================================
+        // DELETE LOGIC (DELETE)
+        // ==========================================
+        function openDeleteModal(id, name) {
+            document.getElementById('deleteItemId').value = id;
+            document.getElementById('deleteItemMessage').innerHTML = `Are you sure you want to delete <strong>${name}</strong>?`;
+            
+            // Trigger Bootstrap Modal
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
+        }
+
+        async function confirmDelete() {
+            const id = document.getElementById('deleteItemId').value;
+
+            try {
+                // Notice we pass the ID in the URL for a DELETE request
+                const response = await fetch(`${JAVA_API_BASE}/items?id=${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide(); // Close modal
+                    showAlert('Item successfully deleted!', 'success');
+                    loadInventory(); // Refresh table
+                } else {
+                    showAlert('Failed to delete item.', 'danger');
+                }
+            } catch (err) {
+                showAlert('Network error while deleting item.', 'danger');
+            }
+        }
+
+        // Utility: Logout
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        // Utility: Show Bootstrap Alerts (Auto-dismiss after 2 seconds)
+        function showAlert(msg, type) {
+            const alertBox = document.getElementById('alert-box');
+            alertBox.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${msg}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>`;
+
+            // Automatically remove the alert after 2000 milliseconds (2 seconds)
+            setTimeout(() => {
+                alertBox.innerHTML = '';
+            }, 2000);
+        }
+    </script>
+    <!-- Bootstrap JS Bundle (Required for closing alerts) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
