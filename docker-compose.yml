@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mongo:
+    image: mongo:8.0
+    environment:
+      # Same kernel 6.19+ workaround you needed in the baseline run
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  inventory-service:
+    build: ./inventory-service
+    image: store-inventory:1.0
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-service:
+    build: ./order-service
+    image: store-order:1.0
+    environment:
+      MONGO_URL: mongodb://mongo:27017/store_orders
+      INVENTORY_URL: http://inventory-service:8080/inventory-service-1.0-SNAPSHOT
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./store-frontend:/usr/share/nginx/html:ro
+    ports:
+      - "5500:80"
+
+volumes:
+  pgdata:
+  mongodata:
