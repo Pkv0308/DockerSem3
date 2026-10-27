@@ -29,7 +29,7 @@ services:
 
   inventory-service:
     build: ./inventory-service
-    image: store-inventory:1.0
+    image: pkv0308/store-inventory:1.0
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
@@ -42,7 +42,7 @@ services:
 
   order-service:
     build: ./order-service
-    image: store-order:1.0
+    image: pkv0308/store-order:1.0
     environment:
       MONGO_URL: mongodb://mongo:27017/store_orders
       INVENTORY_URL: http://inventory-service:8080/inventory-service-1.0-SNAPSHOT
